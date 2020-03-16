@@ -5,27 +5,37 @@
 #include <memory>
 #include <string>
 
-class WebServer;
 class Room;
+class Session;
 typedef std::shared_ptr<Room> RoomPtr;
-
-class Lobby {
+typedef std::shared_ptr<Session> SessionPtr;
+typedef std::weak_ptr<Session> WeakPtr;
+class Lobby : public std::enable_shared_from_this<Lobby>
+{
 public:
-	void add(RoomPtr room);
-	void remove(RoomPtr room);
-	void print();
+  void join(const SessionPtr &s);
+  void leave(const SessionPtr &s);
+  void leave(const RoomPtr &r);
 
-	void update();
+  RoomPtr createRoom(const char *title, const char *userid);
+  int joinRoom(const char *title, const SessionPtr &s);
 
-  std::string print1();
-  
-  std::shared_ptr<Room> find(const char *title);
-	void set_web_server(WebServer *server);
+  void BroadCast(const SessionPtr& me, const std::string &msg);
+  void BroadCast(const std::string &msg);
+  void BroadCast(const char *msg, const size_t len);
 
+  std::string get_object_lobby_info();
+  std::string get_object_lobby_update();
+
+  std::shared_ptr<Lobby> getPtr()
+  {
+    return shared_from_this();
+  }
 
 private:
-	std::list<RoomPtr> rooms;
-	WebServer *server_;
+  std::list<RoomPtr> rooms_;
+  std::list<WeakPtr> sessions_;
+  int room_number_;
 };
 
 #endif

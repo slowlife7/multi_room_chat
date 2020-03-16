@@ -1,106 +1,153 @@
-
-
-
-
 #include "room.h"
-#include "web_session.h"
-#include "lobby.h"
+
 #include <functional>
 
-void Room::join(SessionPtr user) {
-	users.push_back(user);
-     json_object *notice = json_object_new_object();
-    json_object_object_add(notice, "cmd", json_object_new_string("chat"));
-    json_object_object_add(notice, "userid", json_object_new_string(user->getUserid().c_str()));
-    json_object_object_add(notice, "content", json_object_new_string("참여하였습니다."));
+#include "web_session.h"
+#include "lobby.h"
 
-    const char *n = json_object_to_json_string(notice);
-    size_t l = (size_t)strlen(n);
-
-    notify(n);
-
-    json_object_put(notice);
-
-	//notify("[" + std::to_string(number_) + "]" + user->getUserid() + "가 참여하였습니다.");
-	//notify("[" + std::to_string(number_) + "] (" + std::to_string(users.size()) + ")");
+Room::Room(std::string title, const int max, const int number)
+{
+  title_ = title;
+  max_ = max;
+  number_ = number;
 }
 
-bool remover1( std::string pred,  std::string pred1) {
-	return pred == pred1;
+int Room::join(const SessionPtr &s)
+{
+  s->set_room(getPtr());
+  sessions_.push_back(s);
+  return 1;
 }
 
-void Room::leave(SessionPtr user) {
+void Room::leave(const SessionPtr &s)
+{
+  sessions_.remove_if([&s](const SessionWeakPtr &ws) -> bool {
+    auto ss = ws.lock();
+    if (ss)
+    {
+      return s->get_fd() == ss->get_fd();
+    }
+    return false;
+  });
 
-	users.remove(user);
-  lwsl_user("leave size111:%d\n", users.size());
-  lwsl_user("leave:%s\n", user->getUserid().c_str());
+  lwsl_notice("the room has session count: %lu\n", sessions_.size());
 
-     json_object *notice = json_object_new_object();
-    json_object_object_add(notice, "cmd", json_object_new_string("chat"));
-    json_object_object_add(notice, "userid", json_object_new_string(user->getUserid().c_str()));
-    json_object_object_add(notice, "content", json_object_new_string("나갔습니다."));
+  if (sessions_.size() < 1)
+  {
+    auto wl = lobby_.lock();
+    if (wl)
+    {
+      wl->leave(getPtr());
+    }
+  }
+}
 
-    const char *n = json_object_to_json_string(notice);
-    size_t l = (size_t)strlen(n);
+ void Room::BroadCast(const SessionPtr& me, const std::string& msg)
+ {
+   for (auto s : sessions_)
+  {
+    auto ws = s.lock();
+    if (ws && ( ws->get_fd() != me->get_fd() ))
+    {
+      ws->Send(msg.c_str(), msg.size());
+    }
+  }
+ }
+void Room::BroadCast(const std::string &msg)
+{
+  for (auto s : sessions_)
+  {
+    auto ws = s.lock();
+    if (ws)
+    {
+      ws->Send(msg.c_str(), msg.size());
+    }
+  }
+}
 
-    notify(n);
+void Room::BroadCast(const char *msg, const size_t len)
+{
+  for (auto s : sessions_)
+  {
+    auto ws = s.lock();
+    if (ws)
+    {
+      ws->Send(msg, len);
+    }
+  }
+}
 
-    json_object_put(notice);
-
-    auto uu = info2();
-
-    notify(uu);
-
-    
-    
-
-//	lwsl_user("%s\n", std::to_string(number_)+"]"+user->getUserid() + "가 나갔습니다.");
-	//lwsl_user("%s\n", std::to_string(number_) + "] ("+std::to_string(users.size())+")");
-	if (users.size() < 1) {
-		auto l = lobby_.lock();
-		if (l) {
-			l->remove(this->getPtr());
-		}
+std::string Room::get_object_room_users_info()
+{
+  json_object *obj = json_object_new_object();
+  json_object_object_add(obj, "type", json_object_new_string("room_users_info"));
   
-	} else {
-    auto l = lobby_.lock();
-    if(l) {
-      l->update();
-    }
-  }
- 
-}
-
-void Room::notify(std::string msg) {
-	for (auto u : users) {
-      u->Send(msg.c_str(), msg.size());
-	}
-}
-
-void Room::send(std::string from, std::string msg) {
-  lwsl_user("send size:%d\n", users.size());
-	for (auto u : users) {
-      u->Send(msg.c_str(), msg.size());
-	}
-}
-
-std::string Room::info2() {
-    json_object *obj = json_object_new_object();
-    json_object_object_add(obj, "cmd", json_object_new_string("room_info"));
-    json_object_object_add(obj, "number", json_object_new_int(number_));
-    json_object_object_add(obj, "title", json_object_new_string(title_.c_str()));
-
-    json_object *arr = json_object_new_array();
-    for (auto u : users) {
+  json_object *sessions = json_object_new_array();
+  for (auto s : sessions_)
+  {
+    auto ws = s.lock();
+    if (ws)
+    {
       json_object *userid = json_object_new_object();
-      json_object_object_add(userid, "userid", json_object_new_string(u->getUserid().c_str()));
-      json_object_array_add(arr, userid);
+      json_object_object_add(userid, "userid", json_object_new_string(ws->get_userid()));
+      json_object_array_add(sessions, userid);
     }
-
-    json_object_object_add(obj, "users", arr);
-    const char *sobj = json_object_to_json_string(obj);
-    lwsl_user("info2:%s\n", sobj);
-    std::string robj(sobj);
-    json_object_put(obj);
-    return robj;
   }
+
+  json_object_object_add(obj, "users", sessions);
+  const char *sobj = json_object_to_json_string(obj);
+  std::string robj(sobj);
+  json_object_put(obj);
+  return robj;
+}
+
+json_object *Room::get_object_room_info_object()
+{
+  json_object *obj = json_object_new_object();
+  json_object_object_add(obj, "type", json_object_new_string("room_info"));
+  json_object_object_add(obj, "title", json_object_new_string(title_.c_str()));
+
+  json_object *sessions = json_object_new_array();
+  for (auto s : sessions_)
+  {
+    auto ws = s.lock();
+    if (ws)
+    {
+      json_object *userid = json_object_new_object();
+      json_object_object_add(userid, "userid", json_object_new_string(ws->get_userid()));
+      json_object_array_add(sessions, userid);
+    }
+  }
+
+  json_object_object_add(obj, "users", sessions);
+  return obj;
+}
+
+std::string Room::get_object_room_info()
+{
+  json_object *obj = json_object_new_object();
+  json_object_object_add(obj, "type", json_object_new_string("room_info"));
+  json_object_object_add(obj, "title", json_object_new_string(title_.c_str()));
+  json_object *sessions = json_object_new_array();
+  for (auto s : sessions_)
+  {
+    auto ws = s.lock();
+    if (ws)
+    {
+      json_object *userid = json_object_new_object();
+      json_object_object_add(userid, "userid", json_object_new_string(ws->get_userid()));
+      json_object_array_add(sessions, userid);
+    }
+  }
+
+  json_object_object_add(obj, "users", sessions);
+  const char *sobj = json_object_to_json_string(obj);
+  std::string robj(sobj);
+  json_object_put(obj);
+  return robj;
+}
+
+void Room::set_lobby(const std::shared_ptr<Lobby> &lobby)
+{
+  lobby_ = lobby;
+}

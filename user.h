@@ -12,7 +12,10 @@ typedef std::weak_ptr<Session> SessionWeakPtr;
 
 class User : public std::enable_shared_from_this<User> {
 public:
-	User(const char* userid);
+	User( char* userid);
+  User() {
+    
+  }
 	void join(RoomPtr& room);
 	
 	void leave();

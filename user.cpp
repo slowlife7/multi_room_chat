@@ -1,8 +1,13 @@
 #include "User.h"
-#include "Room.h"
+
 #include <iostream>
 
-User::User(const char* userid) : userid_(userid) {}
+#include "Room.h"
+
+User::User( char* userid) {
+
+  userid_ = userid;
+}
 
 void User::join(RoomPtr& room) {
 	room_ = room;

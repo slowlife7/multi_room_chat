@@ -4,9 +4,9 @@
 #include <map>
 #include <string>
 #include <memory>
+
 #include <libwebsockets.h>
 
-class State;
 class Session;
 class Lobby;
 class WebServer
@@ -25,10 +25,10 @@ public:
 
   void OnWrite(uint32_t fd);
 
-  void Send(uint32_t fd, char* _in, size_t len);
-  void Send(char* _in, size_t len);
+  void Send(uint32_t fd, char *_in, size_t len);
+  void Send(char *_in, size_t len);
 
-  int PreTranslate(std::shared_ptr<Session> ws, char* _in, size_t len);
+  int PreTranslate(std::shared_ptr<Session> ws, char *_in, size_t len);
 
   int Run();
 
@@ -39,7 +39,6 @@ private:
   struct lws_context *context_;
 
   std::shared_ptr<Lobby> lobby_;
-  //std::list<std::shared_ptr<Room>> rooms_;
   std::map<uint32_t, std::shared_ptr<Session>> sessions_;
 };
 

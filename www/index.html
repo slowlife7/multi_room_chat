@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+
+    <style>
+      * {
+        margin: 0px;
+        padding: 0px;
+      }
+      #wrap {
+        width: 100vw;
+        height: 100vh;
+      }
+
+      .chat_container, .room_container {
+        display: flex;
+        flex-direction: column;
+        width: 100vw;
+        height: 100vh;
+      }
+
+      .chat_container > .chat_header {
+        flex: 1;
+      }
+
+      .chat_container > .chat_body {
+        flex: 8;
+      }
+
+      .chat_container > .chat_footer {
+        flex: 1;
+      }
+
+      .room_container > .chat_header {
+        flex: 1;
+      }
+
+      .room_container > .chat_body {
+        flex: 8;
+      }
+
+      .room_container > .chat_footer {
+        flex: 1;
+      }
+
+      ul {
+        list-style: none;
+      }
+
+      .chat_header {
+        border: 1px solid #cccccc;
+        margin: 3px;
+      }
+
+      .chat_header > span {
+        font-size: 40px;
+        width: 50%;
+        padding: 10px;
+      }
+
+      .chat_header > button {
+        float: right;
+        padding: 10px;
+        margin: 20px;
+      }
+
+      .chat_body {
+        display: flex;
+        flex-direction: row;
+      }
+
+      .chat_body > .left_side {
+        display: flex;
+        flex-direction: column;
+        flex: 7;
+      }
+
+      .left_side > .chat_room_create {
+        flex: 1;
+        border: 1px solid #cccccc;
+        margin: 3px;
+      }
+      .left_side > .chat_room_list {
+        flex: 5;
+        border: 1px solid #cccccc;
+        margin: 3px;
+        overflow-y: auto;
+      }
+
+      .left_side > .chat_room_list > ul > li {
+        padding: 6px;
+        margin: 10px;
+        border-bottom: 1px solid #cccccc;
+        font-size: 12px;
+
+      }
+
+      .left_side > .chatting {
+        flex: 4;
+        border: 1px solid #cccccc;
+        margin: 3px;
+        /*overflow-y: auto;*/
+      } 
+
+      .left_side > .chatting > .chatting_wrap {
+        overflow-y: auto;
+        height:300px;
+      }
+
+
+      .left_side > .chatting  ul > li {
+        padding: 3px;
+        margin: 0 5px 5px 5px;
+        border-bottom: 1px solid #efefef;
+      }
+
+      .chat_body > .right_side {
+        flex: 3;
+        border: 1px solid #cccccc;
+        margin: 3px;
+      }
+
+      .chat_body > .right_side ul > li {
+        padding: 10px;
+        margin: 0 5px 5px 5px;
+        border-bottom: 1px solid #cccccc;
+      }
+
+      .chat_room_list > span {
+        margin: 20px;
+      }
+
+      .chat_user_list > span {
+        margin: 20px;
+      }
+
+      .chat_room_create {
+        margin: 20px;
+        position:relative; 
+       
+        box-sizing: border-box;
+        width:100%;
+      }
+
+      .chat_room_create > input {
+        float:left;
+        width: calc( 100% - 20px );
+        height: 100%;
+        box-sizing: border-box;
+        padding: 20px;
+        font-size: 15px;
+      }
+
+      .chat_room_create > button {
+        position:absolute; 
+        right:5px; 
+        top:0;
+        bottom:0;
+        
+      }
+
+      .send_msg {
+        margin: 3px;
+        position:relative; 
+        overflow: hidden; 
+        box-sizing: border-box;
+        width:100%;
+      }
+      .send_msg > input{
+        float:left;
+        width: calc( 100% - 5px );
+        box-sizing: border-box;
+        padding: 5px;
+      }
+      .send_msg > button {
+        position:absolute; 
+        right:5px; 
+        top:0;
+        bottom:0;
+        padding:3px;
+      }
+
+      .index {
+        margin: 20px;
+      }
+
+      .index > .welcome {
+        margin: 10px;
+      }
+
+      .index > .enter_lobby {
+        margin: 10px;
+      }
+
+      .index > .enter_lobby input {
+        padding: 10px;
+        font-size: 15px;
+      }
+
+      .index > .enter_lobby button {
+        padding: 10px;
+      }
+
+    </style>
+  </head>
+  <body>
+    <div id="wrap">
+      <div class="index">
+        <div class="welcome">
+          <h3>채팅웹 페이지</h3>
+        </div>
+        <div class="enter_lobby">
+          <input id="userid" type="text" placeholder="아이디" />
+          <button id="connect_user">접속</button>
+        </div>
+      </div>
+    </div>
+  </body>
+  <script>
+    window.addEventListener("DOMContentLoaded", event => {
+
+      function make_lobby_container(obj) {
+      
+        const chat_container = document.createElement("div");
+        chat_container.className = "chat_container";
+
+        let tag_rooms = "";
+        obj.rooms.forEach(element => {
+          tag_rooms += `<li>${element.title}</li>`;
+        }, tag_rooms);
+
+        let tag_users = "";
+        obj.users.forEach(element => {
+          tag_users += `<li>${element}</li>`;
+        }, tag_users);
+
+        chat_container.innerHTML = `
+          <div class="chat_header">
+            <h1>CHAT</h1>
+          </div>
+          <div class="chat_body">
+            <div class="left_side">
+             
+              <div class="chat_room_create">
+                <input id="txt_room_title" type="text" placeholder="방 이름"/>
+                <button id="btn_room_create">만들기</button>
+              </div>
+
+              <div class="chat_room_list">
+                <span>방 목록</span>
+                <ul class="rooms">
+                  ${tag_rooms}
+                </ul>
+              </div>
+
+              <div class="chatting">
+                <div class="chatting_wrap">
+                  <ul>
+                  </ul>
+                </div>
+              </div>
+              <div class="send_msg">
+                <input id="txt_lobby_chat"type="text" />
+                <button id="btn_lobby_chat">전송</button>
+              </div>
+            
+            </div>
+
+            <div class="right_side">
+              <div class="chat_user_list">
+                <span>유저 목록</span>
+                <ul class="users">
+                  ${tag_users}
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="chat_footer">
+          
+          </div>
+        `;
+        return chat_container;
+      }
+
+      function make_room_container(obj) {
+        const room_container = document.createElement("div");
+        room_container.className = "room_container";
+
+        let users = "";
+        obj.users.forEach(element => {
+          users += `<li>${element.userid}</li>`;
+        }, users);
+
+        room_container.innerHTML = `
+          <div class="chat_header">
+            <span>${obj.title}</span>
+            <button id="btn_leave_room">나가기</button>
+          </div>
+          <div class="chat_body">
+            <div class="left_side">
+              <div class="chatting">
+                <div class="chatting_wrap">
+                  
+                <ul>
+                </ul>
+                </div>
+              </div>
+              <div class="send_msg">
+                <input id="txt_room_chat"type="text" />
+                <button id="btn_room_chat">전송</button>
+              </div>
+            </div>
+            <div class="right_side">
+              <div class="chat_user_list">
+                <ul>
+                  ${users}
+                </ul>
+              </div>
+            </div>
+          
+          </div>
+          <div class="chat_footer">
+          </div>
+        `;
+        return room_container;
+      }
+
+      function document_all_child_clear(doc) {
+        while (doc.firstChild) {
+          doc.removeChild(doc.firstChild);
+        }
+      }
+      
+      let web_socket = null;
+      let userid_ = "";
+      const wrap = document.getElementById("wrap");
+      const tag_userid = document.getElementById("userid");
+      const btn_connect = document.getElementById("connect_user");
+      
+      btn_connect.addEventListener("click", event => {
+        const ws = "wss://rasgo.iptime.org:7600";
+        web_socket = new WebSocket(ws);
+        web_socket.onopen = function(event) {
+        
+          userid_ = tag_userid.value;
+          web_socket.send(
+            JSON.stringify({
+              type: "create_user",
+              userid: tag_userid.value
+            })
+          );
+          tag_userid.value = "";
+        };
+
+        web_socket.onclose = function(err) {
+          console.log(err);
+        };
+
+        web_socket.onerror = function(err) {
+          console.log(err);
+        };
+
+        web_socket.onmessage = function(event) {
+          
+          const obj = JSON.parse(event.data);
+          console.log(obj);
+          switch (obj.type) {
+            case "create_user": {
+              break;
+            }
+
+            case "lobby_info": {
+              document_all_child_clear(wrap);
+
+              const tag_lobby = make_lobby_container({
+                rooms: obj.rooms,
+                users: obj.users
+              });
+
+              const chat_area = tag_lobby.querySelector('.chatting > ul');
+              //chat_area.value = "";
+
+              const btn_room_create = tag_lobby.querySelector('#btn_room_create');
+              btn_room_create.addEventListener('click', event => {
+                const txt_room_title = tag_lobby.querySelector('#txt_room_title');
+               
+                web_socket.send(
+                  JSON.stringify({
+                    type: "make_room",
+                    title: txt_room_title.value
+                  })
+                );
+              });
+
+              const txt_lobby_chat = tag_lobby.querySelector('#txt_lobby_chat');
+              const btn_lobby_chat = tag_lobby.querySelector('#btn_lobby_chat');
+              txt_lobby_chat.addEventListener('keydown', event => {
+                  if(event.keyCode === 13) {
+                    web_socket.send(
+                      JSON.stringify({
+                        type: "lobby_chat",
+                        userid: userid_,
+                        content: txt_lobby_chat.value
+                      })
+                    );
+                    txt_lobby_chat.value = "";
+                  }
+                });
+              btn_lobby_chat.addEventListener('click', event => {
+                web_socket.send(
+                  JSON.stringify({
+                    type: "lobby_chat",
+                    userid: userid_,
+                    content: txt_lobby_chat.value
+                  })
+                );
+                txt_lobby_chat.value = "";
+              });
+
+              const join_room = tag_lobby.querySelector('.chat_room_list > ul');
+              join_room.addEventListener('click', event => {
+                const title = event.target.textContent;
+                web_socket.send(JSON.stringify({
+                  type: 'join_room',
+                  title: title
+                }));
+              });
+
+              wrap.appendChild(tag_lobby);
+              break;
+            }
+
+            case "lobby_update": {
+             
+              const users = document.querySelector(".chat_user_list > ul");
+              const rooms = document.querySelector(".chat_room_list > ul");
+              document_all_child_clear(users);
+              document_all_child_clear(rooms);
+
+              obj.users.forEach(element => {
+                users.insertAdjacentHTML(
+                  "beforeend",
+                  `<li>${element}</li>`
+                );
+              });
+
+              obj.rooms.forEach(element => {
+                rooms.insertAdjacentHTML(
+                  "beforeend",
+                  `<li>${element.title}</li>`
+                );
+              });
+              break;
+            }
+
+            case "room_users_info": {
+              const users = document.querySelector('.chat_user_list > ul');  
+              document_all_child_clear(users);
+
+              obj.users.forEach(element => {
+                users.insertAdjacentHTML(
+                  "beforeend",
+                  `<li>${element.userid}</li>`
+                );
+              });
+              break;
+            }
+            
+            case "room_info": {
+              document_all_child_clear(wrap);
+
+              const tag_room = make_room_container(obj);
+           
+              const txt_room_chat = tag_room.querySelector('#txt_room_chat');
+              txt_room_chat.addEventListener('keydown', event => {
+                  if(event.keyCode === 13) {
+                    web_socket.send(
+                  JSON.stringify({
+                    type: "room_chat",
+                    userid: userid_,
+                    content: txt_room_chat.value
+                  })
+                );
+                txt_room_chat.value = "";
+                  }
+                });
+              const btn_room_chat = tag_room.querySelector('#btn_room_chat');
+              const btn_leave_room = tag_room.querySelector('#btn_leave_room');
+
+              btn_room_chat.addEventListener('click', event => {
+                web_socket.send(
+                  JSON.stringify({
+                    type: "room_chat",
+                    userid: userid_,
+                    content: txt_room_chat.value
+                  })
+                );
+                txt_room_chat.value = "";
+              });
+
+              btn_leave_room.addEventListener('click', event => {
+                web_socket.send(JSON.stringify({
+                  type: 'leave_room'
+                }));
+              });
+
+              wrap.appendChild(tag_room);
+              break;
+            }
+            case "room_chat": 
+            case "lobby_chat":
+            {
+              const chatting = document.querySelector('.chatting > .chatting_wrap');
+              const chat_area = document.querySelector(".chatting > .chatting_wrap ul");
+              const li = document.createElement('li');
+              li.textContent = "[" + obj.userid + "]" + obj.content+'\n';
+              chat_area.appendChild(li);
+
+              chatting.scrollTop = chatting.scrollHeight;
+
+              break;
+            }
+          }
+        };
+      });
+    });
+  </script>
+</html>
