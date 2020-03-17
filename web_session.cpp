@@ -8,6 +8,17 @@
 
 Session::Session(struct lws *wsi) : wsi_(wsi)
 {
+  mongoc_init();
+
+  client_ = mongoc_client_new("mongodb://localhost:27017/?appname=multi_room_chat");
+  collection_ = mongoc_client_get_collection(client_, "multi_chat", "connection");
+}
+
+Session::~Session()
+{
+  mongoc_collection_destroy(collection_);
+  mongoc_client_destroy(client_);
+  mongoc_cleanup();
 }
 
 int Session::OnSend()
@@ -62,6 +73,31 @@ int Session::OnRecv(char *in, size_t len)
     {
       wl->join(this->getPtr());
     }
+
+    bson_oid_init(&oid, NULL);
+
+    struct tm t = {0};
+
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    unsigned long long millisecondsSinceEpoch =
+        (unsigned long long)(tv.tv_sec) * 1000 +
+        (unsigned long long)(tv.tv_usec) / 1000;
+    bson_t *doc = BCON_NEW(
+        "_id", BCON_OID(&oid),
+        "create_time", BCON_DATE_TIME(millisecondsSinceEpoch),
+        "leave_time", BCON_DATE_TIME(millisecondsSinceEpoch),
+        "userid", BCON_UTF8(get_userid()),
+        "ip", BCON_UTF8(get_ip()),
+        "port", BCON_INT32(get_port()));
+    bson_error_t error;
+    if (!mongoc_collection_insert_one(
+            collection_, doc, NULL, NULL, &error))
+    {
+      lwsl_warn("%s\n", error.message);
+    }
+    bson_destroy(doc);
+    //logged
   }
   else if (!strcmp(stype, "make_room"))
   {
@@ -100,15 +136,15 @@ int Session::OnRecv(char *in, size_t len)
       wr->BroadCast(sobj, sobj_len);
     }
   }
-  else if(!strcmp(stype, "lobby_chat")) 
+  else if (!strcmp(stype, "lobby_chat"))
   {
     const char *sobj = json_object_to_json_string(obj);
     size_t sobj_len = strlen(sobj);
-     auto wl = lobby_.lock();
-      if (wl)
-      {
-        wl->BroadCast(sobj, sobj_len);
-      }
+    auto wl = lobby_.lock();
+    if (wl)
+    {
+      wl->BroadCast(sobj, sobj_len);
+    }
   }
 
   lws_callback_on_writable(wsi_);
@@ -148,6 +184,30 @@ void Session::OnClose()
     wl->leave(this->getPtr());
     BroadCastLobbyInfo();
   }
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
+  unsigned long long millisecondsSinceEpoch =
+      (unsigned long long)(tv.tv_sec) * 1000 +
+      (unsigned long long)(tv.tv_usec) / 1000;
+  bson_t *query = BCON_NEW("_id", BCON_OID(&oid));
+  bson_t *update = BCON_NEW("$set",
+                            "{",
+                            "leave_time",
+                            BCON_DATE_TIME(millisecondsSinceEpoch),
+                            "updated",
+                            BCON_BOOL(true),
+                            "}");
+  bson_error_t error;
+  if (!mongoc_collection_update_one(
+          collection_, query, update, NULL, NULL, &error))
+  {
+    lwsl_warn("%s\n", error.message);
+  }
+
+  bson_destroy(query);
+  bson_destroy(update);
+
+  //logged mongodb
 }
 
 void Session::set_fd(const uint32_t fd)

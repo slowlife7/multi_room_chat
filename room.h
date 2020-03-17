@@ -20,7 +20,7 @@ public:
   int join(const SessionPtr &s);
   void leave(const SessionPtr &s);
 
-  void BroadCast(const SessionPtr& me, const std::string& msg);
+  void BroadCast(const SessionPtr &me, const std::string &msg);
   void BroadCast(const std::string &msg);
   void BroadCast(const char *msg, const size_t len);
 
@@ -44,6 +44,7 @@ private:
   int number_;
   int max_;
   std::string title_;
+  size_t session_count_;
 
   LobbyWeakPtr lobby_;
   std::list<SessionWeakPtr> sessions_;

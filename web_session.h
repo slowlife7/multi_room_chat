@@ -5,6 +5,9 @@
 #include <queue>
 #include <vector>
 
+#include <bson/bson.h>
+#include <mongoc/mongoc.h>
+
 #include <libwebsockets.h>
 
 class Room;
@@ -21,7 +24,7 @@ class Session : public std::enable_shared_from_this<Session>
 {
 public:
   Session(struct lws *wsi);
-
+  virtual ~Session();
   int OnSend();
 
   int Send(const char *_in, const size_t _len);
@@ -50,6 +53,26 @@ public:
     return userid_.c_str();
   }
 
+  void set_ip(const char *ip)
+  {
+    ip_ = ip;
+  }
+
+  void set_port(uint16_t port)
+  {
+    port_ = port;
+  }
+
+  const char *get_ip() const
+  {
+    return ip_.c_str();
+  }
+
+  uint16_t get_port() const
+  {
+    return port_;
+  }
+
 private:
   void BroadCastLobbyInfo();
   void BroadCastRoomInfo();
@@ -62,6 +85,13 @@ private:
   LobbyWeakPtr lobby_;
   uint32_t fd_;
   std::string userid_;
+
+  std::string ip_;
+  uint16_t port_;
+
+  mongoc_client_t *client_;
+  mongoc_collection_t *collection_;
+  bson_oid_t oid;
 };
 
 #endif

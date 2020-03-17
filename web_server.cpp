@@ -5,6 +5,10 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
 #include "json/json.h"
 
 #include "web_session.h"
@@ -12,11 +16,6 @@
 #include "room.h"
 
 static int interrupted;
-
-/*struct per_session_data
-{
-  int fd;
-}; */
 
 struct vhd_handle
 {
@@ -66,7 +65,19 @@ int ServiceCallback(lws *wsi, lws_callback_reasons reason,
   {
     uint32_t fd = lws_get_socket_fd(wsi);
     lwsl_user("LWS_CALLBACK_ESTABLISHED %u\n", fd);
+
+    struct sockaddr_in client;
+    socklen_t client_len = sizeof(client);
+    memset(&client, 0x00, sizeof(client));
+    int n = getpeername(fd, (struct sockaddr *)&client, &client_len);
+
+    lwsl_user("connected ip :%s port :%u \n", inet_ntoa(client.sin_addr), client.sin_port);
+
     auto new_session = std::make_shared<Session>(wsi);
+
+    new_session->set_ip(inet_ntoa(client.sin_addr));
+    new_session->set_port(client.sin_port);
+
     web_server->Register(fd, new_session);
   }
   break;
@@ -90,6 +101,14 @@ int ServiceCallback(lws *wsi, lws_callback_reasons reason,
   {
     uint32_t fd = lws_get_socket_fd(wsi);
     lwsl_user("LWS_CALLBACK_CLOSED %u\n", fd);
+
+    struct sockaddr_in client;
+    socklen_t client_len = sizeof(client);
+
+    memset(&client, 0x00, sizeof(client));
+    getpeername(fd, (struct sockaddr *)&client, &client_len);
+
+    lwsl_user("connected ip :%s port :%u \n", inet_ntoa(client.sin_addr), client.sin_port);
     web_server->UnRegister(fd);
   }
   break;

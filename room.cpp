@@ -10,12 +10,14 @@ Room::Room(std::string title, const int max, const int number)
   title_ = title;
   max_ = max;
   number_ = number;
+  session_count_ = 0;
 }
 
 int Room::join(const SessionPtr &s)
 {
   s->set_room(getPtr());
   sessions_.push_back(s);
+  session_count_ = sessions_.size();
   return 1;
 }
 
@@ -30,9 +32,11 @@ void Room::leave(const SessionPtr &s)
     return false;
   });
 
-  lwsl_notice("the room has session count: %lu\n", sessions_.size());
+  session_count_ = sessions_.size();
 
-  if (sessions_.size() < 1)
+  lwsl_notice("the room has session count: %lu\n", session_count_);
+
+  if (session_count_ < 1)
   {
     auto wl = lobby_.lock();
     if (wl)
@@ -42,27 +46,20 @@ void Room::leave(const SessionPtr &s)
   }
 }
 
- void Room::BroadCast(const SessionPtr& me, const std::string& msg)
- {
-   for (auto s : sessions_)
-  {
-    auto ws = s.lock();
-    if (ws && ( ws->get_fd() != me->get_fd() ))
-    {
-      ws->Send(msg.c_str(), msg.size());
-    }
-  }
- }
-void Room::BroadCast(const std::string &msg)
+void Room::BroadCast(const SessionPtr &me, const std::string &msg)
 {
   for (auto s : sessions_)
   {
     auto ws = s.lock();
-    if (ws)
+    if (ws && (ws->get_fd() != me->get_fd()))
     {
       ws->Send(msg.c_str(), msg.size());
     }
   }
+}
+void Room::BroadCast(const std::string &msg)
+{
+  BroadCast(msg.c_str(), msg.size());
 }
 
 void Room::BroadCast(const char *msg, const size_t len)
@@ -81,7 +78,7 @@ std::string Room::get_object_room_users_info()
 {
   json_object *obj = json_object_new_object();
   json_object_object_add(obj, "type", json_object_new_string("room_users_info"));
-  
+
   json_object *sessions = json_object_new_array();
   for (auto s : sessions_)
   {
@@ -106,6 +103,7 @@ json_object *Room::get_object_room_info_object()
   json_object *obj = json_object_new_object();
   json_object_object_add(obj, "type", json_object_new_string("room_info"));
   json_object_object_add(obj, "title", json_object_new_string(title_.c_str()));
+  json_object_object_add(obj, "user_count", json_object_new_int(session_count_));
 
   json_object *sessions = json_object_new_array();
   for (auto s : sessions_)
@@ -125,22 +123,8 @@ json_object *Room::get_object_room_info_object()
 
 std::string Room::get_object_room_info()
 {
-  json_object *obj = json_object_new_object();
-  json_object_object_add(obj, "type", json_object_new_string("room_info"));
-  json_object_object_add(obj, "title", json_object_new_string(title_.c_str()));
-  json_object *sessions = json_object_new_array();
-  for (auto s : sessions_)
-  {
-    auto ws = s.lock();
-    if (ws)
-    {
-      json_object *userid = json_object_new_object();
-      json_object_object_add(userid, "userid", json_object_new_string(ws->get_userid()));
-      json_object_array_add(sessions, userid);
-    }
-  }
+  json_object *obj = get_object_room_info_object();
 
-  json_object_object_add(obj, "users", sessions);
   const char *sobj = json_object_to_json_string(obj);
   std::string robj(sobj);
   json_object_put(obj);

@@ -5,6 +5,9 @@
 #include <string>
 #include <memory>
 
+#include <bson/bson.h>
+#include <mongoc/mongoc.h>
+
 #include <libwebsockets.h>
 
 class Session;
@@ -40,6 +43,9 @@ private:
 
   std::shared_ptr<Lobby> lobby_;
   std::map<uint32_t, std::shared_ptr<Session>> sessions_;
+
+  mongoc_client_t *client_;
+  mongoc_collection_t *collection_;
 };
 
 #endif

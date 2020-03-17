@@ -66,7 +66,11 @@ RoomPtr Lobby::createRoom(const char *title, const char *userid)
 
 int Lobby::joinRoom(const char *title, const SessionPtr &s)
 {
-  auto f = std::find_if(rooms_.begin(), rooms_.end(), IsTitle(title));
+  auto f = std::find_if(rooms_.begin(), rooms_.end(), [&title](const std::shared_ptr<Room> &room) -> bool {
+    return !strcmp(title, room->get_title());
+  });
+
+  //auto f = std::find_if(rooms_.begin(), rooms_.end(), IsTitle(title));
   if (f != rooms_.end())
   {
     leave(s);
@@ -77,12 +81,12 @@ int Lobby::joinRoom(const char *title, const SessionPtr &s)
   return 0;
 }
 
-void Lobby::BroadCast(const SessionPtr& me, const std::string &msg)
+void Lobby::BroadCast(const SessionPtr &me, const std::string &msg)
 {
-for (auto ws : sessions_)
+  for (auto ws : sessions_)
   {
     auto s = ws.lock();
-    if (s && ( s->get_fd() != me->get_fd()))
+    if (s && (s->get_fd() != me->get_fd()))
     {
       s->Send((char *)msg.c_str(), msg.size());
     }
@@ -91,14 +95,7 @@ for (auto ws : sessions_)
 
 void Lobby::BroadCast(const std::string &msg)
 {
-  for (auto ws : sessions_)
-  {
-    auto s = ws.lock();
-    if (s)
-    {
-      s->Send((char *)msg.c_str(), msg.size());
-    }
-  }
+  BroadCast((char *)msg.c_str(), msg.size());
 }
 
 void Lobby::BroadCast(const char *msg, const size_t len)
@@ -115,7 +112,7 @@ void Lobby::BroadCast(const char *msg, const size_t len)
 
 std::string Lobby::get_object_lobby_update()
 {
-   json_object *obj = json_object_new_object();
+  json_object *obj = json_object_new_object();
   json_object_object_add(obj, "type", json_object_new_string("lobby_update"));
   json_object *rooms = json_object_new_array();
   json_object *users = json_object_new_array();
